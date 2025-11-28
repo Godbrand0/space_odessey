@@ -3,6 +3,7 @@ import { celo, celoSepolia } from 'wagmi/chains'
 import { injected, metaMask, walletConnect } from 'wagmi/connectors'
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'default-project-id'
+const customRpcUrl = process.env.NEXT_PUBLIC_RPC_URL
 
 export const config = createConfig({
   chains: [celo, celoSepolia],
@@ -21,13 +22,13 @@ export const config = createConfig({
   ],
   transports: {
     [celo.id]: http(undefined, {
-      retryCount: 3,
-      retryDelay: 1000,
+      retryCount: 5,
+      retryDelay: 2000, // 2 second delay between retries (increased from 1s)
       timeout: 30000, // 30 seconds timeout
     }),
-    [celoSepolia.id]: http(undefined, {
-      retryCount: 3,
-      retryDelay: 1000,
+    [celoSepolia.id]: http(customRpcUrl, {
+      retryCount: 5,
+      retryDelay: 2000, // 2 second delay between retries (increased from 1s)
       timeout: 30000, // 30 seconds timeout
     }),
   },

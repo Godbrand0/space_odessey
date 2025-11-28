@@ -32,6 +32,7 @@ export class Game {
   private levelTimeLimit = 60; // 60 seconds per level
   private timeRemaining = 60;
   private timerInterval: NodeJS.Timeout | null = null;
+  private levelCompleteHandled = false; // Flag to prevent multiple callbacks
 
   constructor(canvas: HTMLCanvasElement, callbacks: GameCallbacks, startLevel: number = 1) {
     console.log('🎮 Game constructor called with level:', startLevel)
@@ -215,7 +216,7 @@ export class Game {
     this.checkCollisions();
 
     // Check level complete
-    if (this.aliens.length === 0) {
+    if (this.aliens.length === 0 && !this.levelCompleteHandled) {
       this.handleLevelComplete();
     }
 
@@ -232,6 +233,7 @@ export class Game {
       clearInterval(this.timerInterval);
     }
     
+    this.levelCompleteHandled = true; // Mark as handled
     this.stop();
     this.callbacks.onLevelComplete(this.currentLevel);
   }
@@ -331,6 +333,7 @@ export class Game {
   public nextLevel() {
     if (this.currentLevel < this.maxLevels) {
       this.currentLevel++;
+      this.levelCompleteHandled = false; // Reset flag for new level
       this.initLevel();
       this.initBarriers();
       this.bullets = [];

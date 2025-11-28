@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAccount } from 'wagmi'
 import { useSessionInfo, usePlayerTotalRewards, useLevelTimeRemaining } from './useSpaceInvadersContract'
 import { Game } from '@/lib/game/Game'
+import {
+  getCachedGameState,
+  setCachedGameState,
+  updateCachedGameState,
+  calculateTimeRemaining,
+  clearExpiredCaches,
+} from '@/lib/gameStateCache'
 
 interface GameState {
   game: Game | null
@@ -33,23 +40,45 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
     gameStatus: 'idle',
   })
 
+  // Client-side timer for time tracking (no blockchain polling)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Only fetch from blockchain when explicitly needed (not on interval)
   const { sessionInfo, isLoading: isSessionLoading, refetch: refetchSession } = useSessionInfo(gameState.sessionId)
   const { totalRewards, refetch: refetchRewards } = usePlayerTotalRewards(address || null)
-  const { timeRemaining: contractTimeRemaining, refetch: refetchTime } = useLevelTimeRemaining(gameState.sessionId)
+  const { refetch: refetchTime } = useLevelTimeRemaining(gameState.sessionId)
 
-  // Update game state from contract data
+  // Clear expired caches on mount
   useEffect(() => {
-    if (sessionInfo && !isSessionLoading && Array.isArray(sessionInfo)) {
-      setGameState(prev => ({
-        ...prev,
+    clearExpiredCaches()
+  }, [])
+
+  // Update game state from contract data (only when explicitly fetched)
+  useEffect(() => {
+    if (sessionInfo && !isSessionLoading && Array.isArray(sessionInfo) && gameState.sessionId) {
+      const updates = {
         currentLevel: Number(sessionInfo[1]),
         levelsCompleted: Number(sessionInfo[2]),
         totalRewardsEarned: Number(sessionInfo[3]),
         isActive: Boolean(sessionInfo[5]),
         isCompleted: Boolean(sessionInfo[6]),
+      }
+      
+      setGameState(prev => ({
+        ...prev,
+        ...updates,
       }))
+
+      // Update cache with blockchain data
+      if (address) {
+        updateCachedGameState(gameState.sessionId.toString(), {
+          ...updates,
+          playerAddress: address,
+          levelStartTime: Date.now(), // Reset timer when syncing from blockchain
+        })
+      }
     }
-  }, [sessionInfo, isSessionLoading])
+  }, [sessionInfo, isSessionLoading, gameState.sessionId, address])
 
   // Update player total rewards
   useEffect(() => {
@@ -61,15 +90,38 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
     }
   }, [totalRewards])
 
-  // Update time remaining from contract
+  // Client-side timer for time tracking (replaces blockchain polling)
   useEffect(() => {
-    if (contractTimeRemaining !== undefined) {
-      setGameState(prev => ({
-        ...prev,
-        timeRemaining: contractTimeRemaining,
-      }))
+    if (gameState.isActive && gameState.gameStatus === 'playing') {
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+
+      // Start new timer
+      timerRef.current = setInterval(() => {
+        setGameState(prev => {
+          if (!prev.sessionId) return prev
+          
+          const cached = getCachedGameState(prev.sessionId.toString())
+          if (cached) {
+            const newTimeRemaining = calculateTimeRemaining(cached.levelStartTime)
+            return {
+              ...prev,
+              timeRemaining: newTimeRemaining,
+            }
+          }
+          return prev
+        })
+      }, 1000)
+
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+        }
+      }
     }
-  }, [contractTimeRemaining])
+  }, [gameState.isActive, gameState.gameStatus])
 
   // Initialize game
   const initializeGame = useCallback((sessionId: bigint, startLevel: number = 1) => {
@@ -79,6 +131,22 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
     if (!canvas) {
       console.error('❌ Canvas not available for game initialization')
       return
+    }
+
+    // Try to load from cache first
+    const cached = getCachedGameState(sessionId.toString())
+    if (cached && address && cached.playerAddress === address) {
+      console.log('📦 Loaded game state from cache')
+      setGameState(prev => ({
+        ...prev,
+        sessionId,
+        currentLevel: cached.currentLevel,
+        levelsCompleted: cached.levelsCompleted,
+        totalRewardsEarned: cached.totalRewardsEarned,
+        isActive: cached.isActive,
+        isCompleted: cached.isCompleted,
+        timeRemaining: calculateTimeRemaining(cached.levelStartTime),
+      }))
     }
 
     console.log('🎮 Creating new Game instance...')
@@ -92,7 +160,8 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
             gameStatus: 'levelComplete',
             currentLevel: level + 1,
           }))
-          refetchSession()
+          // Only refetch from blockchain after level complete transaction
+          // Don't call refetchSession() here - it will be called after transaction confirms
         },
         onGameOver: (levelsCompleted) => {
           console.log('💀 Game over with levels completed:', levelsCompleted)
@@ -101,10 +170,16 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
             gameStatus: 'gameOver',
             isActive: false,
           }))
-          refetchSession()
+          // Update cache
+          if (address) {
+            updateCachedGameState(sessionId.toString(), {
+              isActive: false,
+              playerAddress: address,
+            })
+          }
         },
         onTimeUpdate: (timeRemaining) => {
-          // Don't log every time update to avoid spam
+          // Update local state and cache
           setGameState(prev => ({
             ...prev,
             timeRemaining,
@@ -115,17 +190,37 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
     )
 
     console.log('✅ Game instance created, updating state...')
-    setGameState(prev => ({
-      ...prev,
+    const newState = {
       game,
       sessionId,
-      gameStatus: 'playing',
+      gameStatus: 'playing' as const,
       isActive: true,
+    }
+    
+    setGameState(prev => ({
+      ...prev,
+      ...newState,
     }))
+
+    // Initialize cache
+    if (address) {
+      setCachedGameState({
+        sessionId: sessionId.toString(),
+        currentLevel: startLevel,
+        levelsCompleted: 0,
+        totalRewardsEarned: 0,
+        isActive: true,
+        isCompleted: false,
+        playerAddress: address,
+        lastUpdated: Date.now(),
+        levelStartTime: Date.now(),
+        timeRemaining: 60,
+      })
+    }
 
     console.log('🚀 Starting game loop...')
     game.start()
-  }, [canvas, refetchSession])
+  }, [canvas, address])
 
   // Start new game session
   const startNewGame = useCallback((sessionId: bigint) => {
@@ -153,9 +248,19 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
       gameStatus: 'playing',
     }))
 
+    // Update cache with new level
+    if (address) {
+      updateCachedGameState(gameState.sessionId.toString(), {
+        currentLevel: gameState.currentLevel,
+        levelStartTime: Date.now(), // Reset timer for new level
+        playerAddress: address,
+      })
+    }
+
     gameState.game.nextLevel()
+    // Refetch from blockchain after level complete transaction confirms
     refetchSession()
-  }, [gameState.game, gameState.sessionId, refetchSession])
+  }, [gameState.game, gameState.sessionId, gameState.currentLevel, address, refetchSession])
 
   // Stop game
   const stopGame = useCallback(() => {
@@ -194,12 +299,13 @@ export function useGameState(canvas: HTMLCanvasElement | null) {
     }))
   }, [])
 
-  // Refetch all contract data
+  // Refetch all contract data (only call this after transactions confirm)
   const refetchAll = useCallback(() => {
+    console.log('🔄 Manually refetching blockchain data...')
     refetchSession()
     refetchRewards()
-    refetchTime()
-  }, [refetchSession, refetchRewards, refetchTime])
+    // Note: We don't refetch time since we use client-side timer
+  }, [refetchSession, refetchRewards])
 
   return {
     ...gameState,

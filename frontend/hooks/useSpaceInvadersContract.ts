@@ -238,8 +238,7 @@ export function useLevelTimeRemaining(sessionId: bigint | null) {
     functionName: CONTRACT_FUNCTIONS.GET_LEVEL_TIME_REMAINING,
     args: sessionId ? [sessionId] : undefined,
     query: {
-      enabled: !!sessionId,
-      refetchInterval: 1000, // Refetch every second for timer
+      enabled: false, // Disabled - we'll use client-side timer instead
     },
   })
 

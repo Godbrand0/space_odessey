@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useAccount } from 'wagmi'
+import { formatEther } from 'viem'
 import { useGameState } from '@/hooks/useGameState'
 import { useStartGame, useCompleteLevel, useAbandonGame, useClaimRewards, useContractBalance } from '@/hooks/useSpaceInvadersContract'
 import { WalletConnect } from './WalletConnect'
@@ -11,7 +12,7 @@ export function GameUI() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { address, isConnected } = useAccount()
   const gameState = useGameState(canvasRef.current)
-  
+
   const { startGame, isPending: isStartingGame, isConfirmed, receipt } = useStartGame()
   const { completeLevel, isPending: isCompletingLevel } = useCompleteLevel()
   const { abandonGame, isPending: isAbandoningGame } = useAbandonGame()
@@ -21,24 +22,16 @@ export function GameUI() {
   const handleStartGame = async () => {
     try {
       const hash = await startGame()
-      
-      // Note: The actual sessionId will be returned after transaction confirmation
-      // We'll need to wait for the transaction to be mined and then get the session info
     } catch (error) {
       console.error('Failed to start game:', error)
     }
   }
 
-  // Handle transaction confirmation and extract sessionId
   useEffect(() => {
     if (isConfirmed && receipt) {
-      // Extract sessionId from transaction logs
-      // The GameStarted event should contain the sessionId as the first parameter
       if (receipt.logs && receipt.logs.length > 0) {
-        // Try to find the GameStarted event
         if (receipt.logs && receipt.logs.length > 0) {
           for (const log of receipt.logs) {
-            // Try different ways to access the event data
             if ((log as any).eventName === 'GameStarted') {
               if ((log as any).args && (log as any).args.length > 0) {
                 const sessionId = (log as any).args[0]
@@ -46,13 +39,9 @@ export function GameUI() {
                 return
               }
             }
-            
-            // Alternative: Check if log has topics that match GameStarted event
+
             if (log.topics && log.topics.length > 0) {
-              // The first topic should be the GameStarted event signature
-              // The second topic (if exists) should contain the sessionId
               if (log.topics.length > 1) {
-                // Convert the topic to a bigint (sessionId)
                 const sessionId = BigInt(log.topics[1] as string)
                 gameState.startNewGame(sessionId)
                 return
@@ -66,39 +55,54 @@ export function GameUI() {
 
   const handleCompleteLevel = async () => {
     if (!gameState.sessionId) return
-    
+
     try {
-      console.log('🎯 Completing level:', gameState.currentLevel)
-      console.log('📊 Current game state before completion:', {
-        sessionId: gameState.sessionId.toString(),
-        currentLevel: gameState.currentLevel,
-        levelsCompleted: gameState.levelsCompleted,
-        totalRewardsEarned: gameState.totalRewardsEarned,
-        isActive: gameState.isActive,
-        isCompleted: gameState.isCompleted
-      })
+      // currentLevel has already been incremented by the game loop,
+      // so we need to complete the previous level (currentLevel - 1)
+      const completedLevel = gameState.currentLevel - 1
+      const aliensDestroyed = 11 * completedLevel
       
-      // Generate proof (simplified - in production this would be more sophisticated)
-      const proof = '0x' + '0'.repeat(64) // Placeholder proof
-      
-      const hash = await completeLevel(
+      console.log('🎯 === LEVEL COMPLETION DEBUG ===')
+      console.log('📊 Session ID:', gameState.sessionId.toString())
+      console.log('📊 Completed Level:', completedLevel)
+      console.log('📊 Current Level (in state):', gameState.currentLevel)
+      console.log('📊 Levels Completed:', gameState.levelsCompleted)
+      console.log('📊 Aliens Destroyed:', aliensDestroyed)
+      console.log('📊 Score:', 100 * completedLevel)
+      console.log('📊 Time Remaining:', gameState.timeRemaining, 'seconds')
+      console.log('🎯 ============================')
+
+      const proof = '0x' + '0'.repeat(64)
+
+      await completeLevel(
         gameState.sessionId,
-        gameState.currentLevel,
-        100 * gameState.currentLevel, // Score based on level
-        11 * gameState.currentLevel, // Aliens destroyed based on level
+        completedLevel,
+        100 * completedLevel,
+        aliensDestroyed,
         proof as `0x${string}`
       )
-      
-      console.log('✅ Complete level transaction hash:', hash)
+
+      console.log('✅ Transaction submitted successfully')
+      // Note: hash will be available in the hook's state, not returned directly
       gameState.refetchAll()
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to complete level:', error)
+      console.error('❌ Error message:', error?.message || 'Unknown error')
+      
+      // Show user-friendly error
+      if (error?.message?.includes('User rejected')) {
+        alert('Transaction cancelled')
+      } else if (error?.message?.includes('insufficient funds')) {
+        alert('Insufficient funds for gas')
+      } else {
+        alert(`Transaction failed: ${error?.message || 'Unknown error'}. Check console for details.`)
+      }
     }
   }
 
   const handleAbandonGame = async () => {
     if (!gameState.sessionId) return
-    
+
     try {
       await abandonGame(gameState.sessionId)
       gameState.stopGame()
@@ -110,21 +114,14 @@ export function GameUI() {
 
   const handleClaimRewards = async () => {
     if (!gameState.sessionId) return
-    
+
     try {
       console.log('🎯 Claiming rewards for sessionId:', gameState.sessionId.toString())
-      console.log('📊 Current game state:', {
-        levelsCompleted: gameState.levelsCompleted,
-        totalRewardsEarned: gameState.totalRewardsEarned,
-        isActive: gameState.isActive,
-        isCompleted: gameState.isCompleted,
-        gameStatus: gameState.gameStatus
-      })
-      
+
       gameState.setClaimingStatus()
       const hash = await claimRewards(gameState.sessionId)
       console.log('✅ Claim rewards transaction hash:', hash)
-      
+
       gameState.resetGame()
       gameState.refetchAll()
     } catch (error) {
@@ -139,121 +136,262 @@ export function GameUI() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
-        <h1 className="text-4xl font-bold mb-8">🎮 Space Invaders GameFi</h1>
-        <p className="text-xl mb-8">Connect your wallet to start playing and earning CELO!</p>
-        <WalletConnect />
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="text-center space-y-8">
+          <div className="space-y-4">
+            <h1 className="text-6xl md:text-8xl neon-text arcade-font" style={{ color: 'var(--neon-cyan)' }}>
+              SPACE
+            </h1>
+            <h1 className="text-6xl md:text-8xl neon-text arcade-font" style={{ color: 'var(--neon-pink)' }}>
+              INVADERS
+            </h1>
+          </div>
+
+          <div className="inline-block px-8 py-4 border-4 rainbow-border" style={{ borderColor: 'var(--neon-green)' }}>
+            <p className="text-xl arcade-font" style={{ color: 'var(--neon-yellow)' }}>
+              GAMEFI EDITION
+            </p>
+          </div>
+
+          <div className="space-y-6 mt-12">
+            <p className="text-lg arcade-font" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
+              CONNECT WALLET TO START
+            </p>
+            <p className="text-lg arcade-font" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
+              EARN CELO REWARDS
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <WalletConnect />
+          </div>
+
+          <div className="mt-12 flex justify-center gap-4">
+            <div className="text-center">
+              <div className="text-4xl mb-2">👾</div>
+              <p className="arcade-font text-xs" style={{ color: 'var(--neon-cyan)' }}>DESTROY</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-2">🎯</div>
+              <p className="arcade-font text-xs" style={{ color: 'var(--neon-pink)' }}>AIM</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-2">💰</div>
+              <p className="arcade-font text-xs" style={{ color: 'var(--neon-yellow)' }}>EARN</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-gray-800">
-        <div className="flex items-center space-x-6">
-          <h1 className="text-2xl font-bold">🎮 Space Invaders</h1>
-          <div className="text-sm">
-            <span className="text-gray-400">Wallet:</span> {address?.slice(0, 6)}...{address?.slice(-4)}
+    <div className="min-h-screen p-4">
+      {/* Arcade Header */}
+      <div className="mb-4 p-6 relative" style={{
+        background: 'linear-gradient(180deg, rgba(26, 11, 46, 0.8) 0%, rgba(10, 10, 10, 0.8) 100%)',
+        border: '3px solid var(--neon-cyan)',
+        boxShadow: '0 0 20px var(--neon-cyan), inset 0 0 20px rgba(0, 240, 255, 0.1)'
+      }}>
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div className="flex items-center gap-8">
+            <h1 className="text-2xl neon-text arcade-font" style={{ color: 'var(--neon-cyan)', fontSize: '16px' }}>
+              SPACE INVADERS
+            </h1>
+            <div className="arcade-font text-xs" style={{ color: 'var(--neon-green)' }}>
+              <span style={{ color: 'var(--arcade-cyan)' }}>PLAYER:</span> {address?.slice(0, 6)}...{address?.slice(-4)}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-sm">
-            <span className="text-gray-400">Level:</span> {gameState.currentLevel}/5
+
+          <div className="flex items-center gap-6">
+            <div className="score-display" style={{ fontSize: '12px' }}>
+              <span style={{ color: 'var(--arcade-cyan)' }}>LVL:</span> {gameState.currentLevel}/5
+            </div>
+            <div className="score-display" style={{ fontSize: '12px' }}>
+              <span style={{ color: 'var(--arcade-cyan)' }}>TIME:</span> {gameState.timeRemaining}s
+            </div>
+            <div className="score-display" style={{ fontSize: '12px' }}>
+              <span style={{ color: 'var(--arcade-yellow)' }}>REWARDS:</span> {formatEther(BigInt(gameState.totalRewardsEarned))}
+            </div>
+            <div className="score-display" style={{ fontSize: '12px' }}>
+              <span style={{ color: 'var(--arcade-green)' }}>POOL:</span> {parseFloat(contractBalance).toFixed(2)}
+            </div>
+            <WalletConnect />
           </div>
-          <div className="text-sm">
-            <span className="text-gray-400">Time:</span> {gameState.timeRemaining}s
-          </div>
-          <div className="text-sm">
-            <span className="text-gray-400">Rewards:</span> {gameState.totalRewardsEarned} CELO
-          </div>
-          <div className="text-sm">
-            <span className="text-gray-400">Contract:</span> {parseFloat(contractBalance).toFixed(2)} CELO
-          </div>
-          <WalletConnect />
         </div>
       </div>
 
-      {/* Game Canvas */}
-      <div className="flex justify-center items-center py-8">
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={600}
-          className="border border-gray-700 bg-gray-900"
-        />
+      {/* Arcade Cabinet */}
+      <div className="flex justify-center mb-6">
+        <div className="relative cabinet-shadow" style={{
+          background: 'linear-gradient(180deg, #1a0b2e 0%, #0a0a0a 100%)',
+          padding: '20px',
+          borderRadius: '20px',
+          border: '8px solid var(--arcade-purple)',
+          boxShadow: '0 0 40px var(--arcade-purple), inset 0 0 40px rgba(127, 44, 203, 0.2)'
+        }}>
+          {/* Screen Bezel */}
+          <div className="relative" style={{
+            padding: '16px',
+            background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
+            borderRadius: '12px',
+            border: '4px solid var(--arcade-cyan)',
+            boxShadow: 'inset 0 4px 8px rgba(0, 0, 0, 0.8)'
+          }}>
+            {/* CRT Screen */}
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={600}
+              className="crt-screen"
+              style={{
+                borderRadius: '8px',
+                display: 'block'
+              }}
+            />
+          </div>
+
+          {/* Control Panel Decoration */}
+          <div className="mt-6 flex justify-center gap-4">
+            <div className="w-16 h-16 rounded-full pulse-glow" style={{
+              background: 'var(--arcade-red)',
+              border: '4px solid #8b0000',
+              boxShadow: '0 0 20px var(--arcade-red)'
+            }}></div>
+            <div className="w-16 h-16 rounded-full pulse-glow" style={{
+              background: 'var(--arcade-green)',
+              border: '4px solid #006400',
+              boxShadow: '0 0 20px var(--arcade-green)'
+            }}></div>
+            <div className="w-16 h-16 rounded-full pulse-glow" style={{
+              background: 'var(--arcade-yellow)',
+              border: '4px solid #8b8b00',
+              boxShadow: '0 0 20px var(--arcade-yellow)'
+            }}></div>
+          </div>
+        </div>
       </div>
 
       {/* Game Controls */}
-      <div className="flex justify-center space-x-4 pb-8">
+      <div className="flex justify-center pb-8">
         {!gameState.game && gameState.gameStatus === 'idle' && (
           <button
             onClick={handleStartGame}
             disabled={isStartingGame}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-semibold transition-colors"
+            className="arcade-button"
+            style={{
+              color: 'var(--neon-green)',
+              fontSize: '12px',
+              opacity: isStartingGame ? 0.5 : 1
+            }}
           >
-            {isStartingGame ? 'Starting...' : 'Start Game'}
+            {isStartingGame ? 'STARTING...' : 'INSERT COIN'}
           </button>
         )}
 
         {gameState.gameStatus === 'levelComplete' && (
-          <div className="flex flex-col items-center space-y-4">
-            <h2 className="text-3xl font-bold text-green-400 mb-2">🎉 Level {gameState.currentLevel - 1} Complete! 🎉</h2>
-            <p className="text-xl text-white mb-4">Great job! You've destroyed all aliens and earned 2 CELO!</p>
-            <div className="flex space-x-4">
+          <div className="flex flex-col items-center space-y-6">
+            <h2 className="text-4xl neon-text arcade-font glitch" style={{ color: 'var(--neon-green)', fontSize: '24px' }}>
+              LEVEL {gameState.currentLevel - 1} COMPLETE!
+            </h2>
+            <p className="arcade-font" style={{ color: 'var(--neon-yellow)', fontSize: '12px' }}>
+              ALIENS DESTROYED! +2 CELO EARNED
+            </p>
+            <p className="arcade-font" style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>
+              TOTAL EARNED: {Number(formatEther(BigInt(gameState.totalRewardsEarned))) + 2} CELO
+            </p>
+            <div className="flex gap-4">
               <button
                 onClick={handleCompleteLevel}
                 disabled={isCompletingLevel}
-                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-lg font-bold text-lg transition-all transform hover:scale-105"
+                className="arcade-button"
+                style={{
+                  color: 'var(--neon-cyan)',
+                  fontSize: '10px',
+                  opacity: isCompletingLevel ? 0.5 : 1
+                }}
               >
-                {isCompletingLevel ? '⏳ Completing...' : '💰 Complete Level & Earn 2 CELO'}
+                {isCompletingLevel ? 'RECORDING...' : 'RECORD LEVEL'}
               </button>
               <button
                 onClick={handleNextLevel}
                 disabled={isCompletingLevel}
-                className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold text-lg transition-all transform hover:scale-105 opacity-50 cursor-not-allowed"
-                style={{ display: isCompletingLevel ? 'none' : 'block' }}
+                className="arcade-button"
+                style={{
+                  color: 'var(--neon-purple)',
+                  fontSize: '10px',
+                  opacity: isCompletingLevel ? 0.3 : 1
+                }}
               >
-                {isCompletingLevel ? '⏭ Next Level' : '🚀 Next Level'}
+                {gameState.currentLevel <= 5 ? 'NEXT LEVEL' : 'CONTINUE'}
               </button>
             </div>
+            <p className="arcade-font" style={{ color: 'var(--neon-pink)', fontSize: '8px', opacity: 0.7 }}>
+              CLAIM ALL REWARDS AFTER GAME ENDS
+            </p>
           </div>
         )}
 
         {gameState.gameStatus === 'gameOver' && (
-          <div className="flex flex-col items-center space-y-4">
-            <h2 className="text-3xl font-bold text-red-400 mb-2">💀 Game Over! 💀</h2>
-            <p className="text-xl text-white mb-2">You fought bravely and completed {gameState.levelsCompleted} levels!</p>
-            <p className="text-lg text-yellow-400 mb-4">Earned: {gameState.totalRewardsEarned} CELO</p>
-            <div className="flex space-x-4">
+          <div className="flex flex-col items-center space-y-6">
+            <h2 className="text-4xl neon-text arcade-font glitch" style={{ color: 'var(--neon-red)', fontSize: '24px' }}>
+              GAME OVER
+            </h2>
+            <p className="arcade-font" style={{ color: 'var(--neon-cyan)', fontSize: '12px' }}>
+              LEVELS CLEARED: {gameState.levelsCompleted}
+            </p>
+            <p className="arcade-font" style={{ color: 'var(--neon-yellow)', fontSize: '14px' }}>
+              EARNED: {formatEther(BigInt(gameState.totalRewardsEarned))} CELO
+            </p>
+            <div className="flex gap-4">
               <button
                 onClick={handleClaimRewards}
                 disabled={isClaimingRewards || gameState.totalRewardsEarned === 0}
-                className="px-8 py-4 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 rounded-lg font-bold text-lg transition-all transform hover:scale-105"
+                className="arcade-button pulse-glow"
+                style={{
+                  color: 'var(--neon-yellow)',
+                  fontSize: '10px',
+                  opacity: (isClaimingRewards || gameState.totalRewardsEarned === 0) ? 0.5 : 1
+                }}
               >
-                {isClaimingRewards ? '⏳ Claiming...' : `💰 Claim ${gameState.totalRewardsEarned} CELO`}
+                {isClaimingRewards ? 'CLAIMING...' : `CLAIM ${formatEther(BigInt(gameState.totalRewardsEarned))} CELO`}
               </button>
               <button
                 onClick={gameState.resetGame}
-                className="px-8 py-4 bg-gray-600 hover:bg-gray-700 rounded-lg font-bold text-lg transition-all transform hover:scale-105"
+                className="arcade-button"
+                style={{
+                  color: 'var(--neon-green)',
+                  fontSize: '10px'
+                }}
               >
-                🔄 Try Again
+                TRY AGAIN
               </button>
             </div>
           </div>
         )}
 
         {gameState.gameStatus === 'victory' && (
-          <div className="flex flex-col items-center space-y-4">
-            <h2 className="text-4xl font-bold text-yellow-400 mb-2">🏆 CHAMPION! 🏆</h2>
-            <p className="text-2xl text-white mb-2">Incredible! You've conquered all 5 levels!</p>
-            <p className="text-xl text-green-400 mb-4">Total earned: {gameState.totalRewardsEarned} CELO</p>
+          <div className="flex flex-col items-center space-y-6">
+            <h2 className="text-5xl neon-text arcade-font rainbow-border" style={{ color: 'var(--neon-yellow)', fontSize: '32px' }}>
+              CHAMPION!
+            </h2>
+            <p className="arcade-font neon-text" style={{ color: 'var(--neon-pink)', fontSize: '14px' }}>
+              ALL LEVELS CONQUERED!
+            </p>
+            <p className="arcade-font score-display" style={{ fontSize: '16px', color: 'var(--neon-green)' }}>
+              TOTAL: {formatEther(BigInt(gameState.totalRewardsEarned))} CELO
+            </p>
             <button
               onClick={handleClaimRewards}
               disabled={isClaimingRewards}
-              className="px-10 py-5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-bold text-xl transition-all transform hover:scale-105 shadow-lg"
+              className="arcade-button pulse-glow rainbow-border"
+              style={{
+                color: 'var(--neon-yellow)',
+                fontSize: '12px',
+                opacity: isClaimingRewards ? 0.5 : 1
+              }}
             >
-              {isClaimingRewards ? '⏳ Claiming...' : '🏆 Claim Your 10 CELO Prize!'}
+              {isClaimingRewards ? 'CLAIMING...' : 'CLAIM PRIZE!'}
             </button>
           </div>
         )}
@@ -262,25 +400,56 @@ export function GameUI() {
           <button
             onClick={handleAbandonGame}
             disabled={isAbandoningGame}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 rounded-lg font-semibold transition-colors"
+            className="arcade-button"
+            style={{
+              color: 'var(--neon-red)',
+              fontSize: '10px',
+              opacity: isAbandoningGame ? 0.5 : 1,
+              marginTop: '20px'
+            }}
           >
-            {isAbandoningGame ? 'Abandoning...' : 'Abandon Game'}
+            {isAbandoningGame ? 'ABORTING...' : 'ABORT MISSION'}
           </button>
         )}
       </div>
 
-      {/* Instructions */}
+      {/* Instructions Panel */}
       {gameState.gameStatus === 'idle' && (
-        <div className="max-w-2xl mx-auto px-8 pb-8">
-          <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-            <h3 className="text-xl font-bold mb-4">How to Play</h3>
-            <div className="space-y-2 text-gray-300">
-              <p>🎮 Use <span className="text-white font-semibold">Arrow Keys</span> to move your ship</p>
-              <p>🔫 Press <span className="text-white font-semibold">Spacebar</span> to shoot</p>
-              <p>👾 Destroy all aliens before time runs out</p>
-              <p>💰 Earn <span className="text-green-400 font-semibold">2 CELO</span> per level completed</p>
-              <p>⏱️ You have <span className="text-yellow-400 font-semibold">60 seconds</span> per level</p>
-              <p>🏆 Complete all 5 levels to earn <span className="text-yellow-400 font-semibold">10 CELO</span> total!</p>
+        <div className="max-w-3xl mx-auto px-4 pb-8">
+          <div className="relative p-6" style={{
+            background: 'linear-gradient(180deg, rgba(26, 11, 46, 0.6) 0%, rgba(10, 10, 10, 0.8) 100%)',
+            border: '3px solid var(--neon-pink)',
+            borderRadius: '12px',
+            boxShadow: '0 0 30px var(--neon-pink), inset 0 0 20px rgba(255, 0, 128, 0.1)'
+          }}>
+            <h3 className="text-2xl arcade-font neon-text mb-6 text-center" style={{ color: 'var(--neon-pink)', fontSize: '16px' }}>
+              HOW TO PLAY
+            </h3>
+            <div className="space-y-4 arcade-font" style={{ fontSize: '10px' }}>
+              <div className="flex items-center gap-3">
+                <span style={{ color: 'var(--neon-cyan)' }}>◄►</span>
+                <span style={{ color: 'var(--neon-green)' }}>ARROW KEYS TO MOVE</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span style={{ color: 'var(--neon-cyan)' }}>▬</span>
+                <span style={{ color: 'var(--neon-green)' }}>SPACEBAR TO FIRE</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span style={{ color: 'var(--neon-yellow)' }}>👾</span>
+                <span style={{ color: 'var(--neon-green)' }}>DESTROY ALL ALIENS</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span style={{ color: 'var(--neon-yellow)' }}>💰</span>
+                <span style={{ color: 'var(--neon-green)' }}>EARN 2 CELO PER LEVEL</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span style={{ color: 'var(--neon-yellow)' }}>⏱</span>
+                <span style={{ color: 'var(--neon-green)' }}>60 SECONDS PER LEVEL</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span style={{ color: 'var(--neon-yellow)' }}>🏆</span>
+                <span style={{ color: 'var(--neon-green)' }}>COMPLETE ALL 5 LEVELS = 10 CELO!</span>
+              </div>
             </div>
           </div>
         </div>
@@ -294,33 +463,6 @@ export function GameUI() {
         error={null}
         hash={null}
         pendingMessage="Starting game..."
-      />
-      
-      <TransactionStatus
-        isPending={isCompletingLevel}
-        isConfirming={false}
-        isConfirmed={false}
-        error={null}
-        hash={null}
-        pendingMessage="Completing level..."
-      />
-      
-      <TransactionStatus
-        isPending={isAbandoningGame}
-        isConfirming={false}
-        isConfirmed={false}
-        error={null}
-        hash={null}
-        pendingMessage="Abandoning game..."
-      />
-      
-      <TransactionStatus
-        isPending={isClaimingRewards}
-        isConfirming={false}
-        isConfirmed={false}
-        error={null}
-        hash={null}
-        pendingMessage="Claiming rewards..."
       />
     </div>
   )

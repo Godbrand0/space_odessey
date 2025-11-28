@@ -1,8 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Arcade Color Palette */
+  --arcade-black: #0a0a0a;
+  --arcade-darkest: #1a0b2e;
+  --arcade-dark: #16213e;
+  --arcade-purple: #7f2ccb;
+  --arcade-pink: #ff0080;
+  --arcade-cyan: #00f0ff;
+  --arcade-green: #00ff41;
+  --arcade-yellow: #ffff00;
+  --arcade-orange: #ff6b00;
+  --arcade-red: #ff0000;
+
+  /* Neon Glow Colors */
+  --neon-blue: #4d4dff;
+  --neon-purple: #bf40bf;
+  --neon-pink: #ff1493;
+  --neon-cyan: #00ffff;
+  --neon-green: #39ff14;
+
+  /* Background */
+  --background: #0a0a0a;
+  --background-gradient: linear-gradient(180deg, #0a0a0a 0%, #1a0b2e 100%);
+  --foreground: #00ff41;
+
+  /* CRT Effect */
+  --scan-line-color: rgba(255, 255, 255, 0.05);
+  --screen-glow: rgba(0, 240, 255, 0.15);
 }
 
 @theme inline {
@@ -12,15 +38,206 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--arcade-black);
+  background-image:
+    radial-gradient(circle at 50% 50%, var(--arcade-darkest) 0%, var(--arcade-black) 100%);
+  color: var(--foreground);
+  font-family: 'Press Start 2P', monospace;
+  overflow-x: hidden;
+}
+
+/* Arcade Retro Font */
+.arcade-font {
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Neon Text Glow Effect */
+.neon-text {
+  text-shadow:
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 20px currentColor,
+    0 0 40px currentColor;
+  animation: neon-flicker 1.5s infinite alternate;
+}
+
+@keyframes neon-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    text-shadow:
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor,
+      0 0 40px currentColor,
+      0 0 80px currentColor;
+  }
+  20%, 24%, 55% {
+    text-shadow: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* CRT Screen Effect */
+.crt-screen {
+  position: relative;
+  background: #0a0a0a;
+  box-shadow:
+    inset 0 0 100px rgba(0, 240, 255, 0.1),
+    0 0 80px rgba(0, 240, 255, 0.3);
+}
+
+.crt-screen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    var(--scan-line-color) 51%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 10;
+  animation: scanline 8s linear infinite;
+}
+
+.crt-screen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes scanline {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100%;
+  }
+}
+
+/* Arcade Button Styles */
+.arcade-button {
+  position: relative;
+  font-family: 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  font-size: 14px;
+  padding: 16px 32px;
+  border: 3px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow:
+    0 0 10px currentColor,
+    inset 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.arcade-button:hover {
+  background: currentColor;
+  color: #0a0a0a;
+  box-shadow:
+    0 0 20px currentColor,
+    0 0 40px currentColor,
+    inset 0 0 20px rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.arcade-button:active {
+  transform: scale(0.95);
+}
+
+/* Pixel Border Effect */
+.pixel-border {
+  border-style: solid;
+  border-image:
+    repeating-linear-gradient(
+      45deg,
+      currentColor 0px,
+      currentColor 2px,
+      transparent 2px,
+      transparent 4px
+    ) 4;
+}
+
+/* Glitch Effect */
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+.glitch {
+  animation: glitch 0.3s infinite;
+}
+
+/* Pulsing Glow */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 30px currentColor, 0 0 60px currentColor, 0 0 80px currentColor;
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Score Display */
+.score-display {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 24px;
+  color: var(--neon-cyan);
+  text-shadow:
+    0 0 10px var(--neon-cyan),
+    0 0 20px var(--neon-cyan),
+    0 0 30px var(--neon-cyan);
+}
+
+/* Arcade Cabinet Shadow */
+.cabinet-shadow {
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.8),
+    inset 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+/* Rainbow Border Animation */
+@keyframes rainbow-border {
+  0% { border-color: var(--arcade-pink); }
+  20% { border-color: var(--arcade-purple); }
+  40% { border-color: var(--arcade-cyan); }
+  60% { border-color: var(--arcade-green); }
+  80% { border-color: var(--arcade-yellow); }
+  100% { border-color: var(--arcade-pink); }
+}
+
+.rainbow-border {
+  animation: rainbow-border 3s linear infinite;
 }
