@@ -1,0 +1,9 @@
+{
+  "name": "Space Odessey",
+  "description": "Play Space Invaders and earn CELO rewards on-chain. Stake OCT tokens, compete for high scores, and claim your rewards!",
+  "iconUrl": "https://image2url.com/images/1764357447154-6a721980-b52d-48a6-ad96-d763feaddb6a.png",
+  "splashImageUrl": "https://image2url.com/images/1764357517154-180a4271-b440-4aff-9adc-38017fc9fffd.jpg",
+  "splashBackgroundColor": "#000000",
+  "url": "https://space-odessey.vercel.app/",
+  "requiredChains": [44787]
+}

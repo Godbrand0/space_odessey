@@ -1,27 +1,41 @@
-# 🎮 Alien Invaders GameFi - OneChain Play-to-Earn Platform
+# 🎮 Alien Invaders GameFi - Play-to-Earn on Celo
 
-A decentralized play-to-earn Space Invaders game built on OneChain where players stake OCT tokens to play and earn rewards based on their performance.
+A decentralized play-to-earn Space Invaders game built on **Celo** where players earn CELO rewards by completing levels. Now available as a **Farcaster MiniApp**!
 
 ## 📋 Overview
 
-**Alien Invaders GameFi** combines classic arcade gameplay with blockchain economics. Players stake OCT tokens to enter games, compete for high scores, and earn rewards from a shared prize pool. The better you play, the more you earn!
+**Alien Invaders GameFi** combines classic arcade gameplay with blockchain economics. Players earn 2 CELO per level completed, with a total of 10 CELO available for conquering all 5 levels!
 
 ### Key Features
 
 - 🎮 **Classic Space Invaders Gameplay**: Nostalgic arcade action
-- 💰 **Stake-to-Play**: Stake OCT tokens to enter games
-- 🏆 **Score-Based Rewards**: Higher scores = bigger rewards
-- 🎯 **Prize Pool System**: Community-funded reward distribution
-- 🔒 **Blockchain Verified**: All scores and rewards on-chain
-- ⚡ **Instant Payouts**: Claim rewards immediately after games
+- 💰 **Play-to-Earn**: Earn 2 CELO per level (10 CELO total)
+- 🏆 **5 Progressive Levels**: Increasing difficulty and rewards
+- 🔒 **Blockchain Verified**: All progress and rewards on-chain
+- ⚡ **Instant Payouts**: Claim rewards after completing the game
+- 📱 **Farcaster MiniApp**: Play directly in Farcaster clients
+- 🎯 **Mobile-Optimized**: Touch controls with haptic feedback
 
-### Game Economics
+### Farcaster MiniApp
 
-| Stake Amount | Entry Fee | Potential Reward Multiplier |
-|--------------|-----------|----------------------------|
-| 10 OCT       | 1 OCT     | Up to 5x (50 OCT max)     |
-| 50 OCT       | 5 OCT     | Up to 10x (500 OCT max)   |
-| 100 OCT      | 10 OCT    | Up to 20x (2000 OCT max)  |
+Play Alien Invaders directly in Warpcast and other Farcaster clients! The MiniApp version features:
+
+- ✅ Seamless wallet connection
+- ✅ Haptic feedback for mobile gameplay
+- ✅ Optimized UI for in-app experience
+- ✅ No need to leave Farcaster
+
+**[📖 Read the Farcaster MiniApp Guide](FARCASTER_MINIAPP.md)**
+
+### Reward Structure
+
+| Level | Difficulty | Reward per Level | Cumulative Total |
+|-------|-----------|------------------|------------------|
+| 1     | Easy      | 2 CELO          | 2 CELO          |
+| 2     | Medium    | 2 CELO          | 4 CELO          |
+| 3     | Hard      | 2 CELO          | 6 CELO          |
+| 4     | Harder    | 2 CELO          | 8 CELO          |
+| 5     | Hardest   | 2 CELO          | **10 CELO** 🏆  |
 
 ## 🏗️ Architecture
 

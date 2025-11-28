@@ -1,19 +1,26 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { formatEther } from 'viem'
 import { useGameState } from '@/hooks/useGameState'
 import { useStartGame, useCompleteLevel, useAbandonGame, useClaimRewards, useContractBalance } from '@/hooks/useSpaceInvadersContract'
 import { WalletConnect } from './WalletConnect'
+import { MiniAppConnect } from './MiniAppConnect'
 import { TransactionStatus } from './TransactionStatus'
 import { useMiniPay } from '@/hooks/useMiniPay'
+import { isInMiniApp, triggerHaptic } from '@/lib/farcaster'
 
 export function GameUI() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { address, isConnected } = useAccount()
   const gameState = useGameState(canvasRef.current)
   const { isMiniPay, isAutoConnecting } = useMiniPay()
+  const [isFarcasterMiniApp, setIsFarcasterMiniApp] = useState(false)
+
+  useEffect(() => {
+    setIsFarcasterMiniApp(isInMiniApp())
+  }, [])
 
   const { startGame, isPending: isStartingGame, isConfirmed, receipt } = useStartGame()
   const { completeLevel, isPending: isCompletingLevel } = useCompleteLevel()
@@ -23,9 +30,11 @@ export function GameUI() {
 
   const handleStartGame = async () => {
     try {
+      triggerHaptic('medium')
       const hash = await startGame()
     } catch (error) {
       console.error('Failed to start game:', error)
+      triggerHaptic('error')
     }
   }
 
@@ -76,6 +85,7 @@ export function GameUI() {
 
       const proof = '0x' + '0'.repeat(64)
 
+      triggerHaptic('success')
       await completeLevel(
         gameState.sessionId,
         completedLevel,
@@ -91,6 +101,7 @@ export function GameUI() {
       console.error('❌ Failed to complete level:', error)
       console.error('❌ Error message:', error?.message || 'Unknown error')
       
+      triggerHaptic('error')
       // Show user-friendly error
       if (error?.message?.includes('User rejected')) {
         alert('Transaction cancelled')
@@ -120,6 +131,7 @@ export function GameUI() {
     try {
       console.log('🎯 Claiming rewards for sessionId:', gameState.sessionId.toString())
 
+      triggerHaptic('success')
       gameState.setClaimingStatus()
       const hash = await claimRewards(gameState.sessionId)
       console.log('✅ Claim rewards transaction hash:', hash)
@@ -128,6 +140,7 @@ export function GameUI() {
       gameState.refetchAll()
     } catch (error) {
       console.error('❌ Failed to claim rewards:', error)
+      triggerHaptic('error')
       gameState.setClaimingStatus()
     }
   }
@@ -187,7 +200,7 @@ export function GameUI() {
           {/* Hide connect button if MiniPay is auto-connecting */}
           {!isAutoConnecting && (
             <div className="mt-8">
-              <WalletConnect />
+              {isFarcasterMiniApp ? <MiniAppConnect /> : <WalletConnect />}
             </div>
           )}
 
@@ -241,7 +254,7 @@ export function GameUI() {
             <div className="score-display" style={{ fontSize: '12px' }}>
               <span style={{ color: 'var(--arcade-green)' }}>POOL:</span> {parseFloat(contractBalance).toFixed(2)}
             </div>
-            <WalletConnect />
+            {!isFarcasterMiniApp && <WalletConnect />}
           </div>
         </div>
       </div>
@@ -343,6 +356,7 @@ export function GameUI() {
           }}
           onPointerDown={() => {
             if (gameState.game) {
+              triggerHaptic('light')
               gameState.game.setKey('ArrowLeft', true);
               gameState.game.setAutoShoot(true);
             }
@@ -371,6 +385,7 @@ export function GameUI() {
           }}
           onPointerDown={() => {
             if (gameState.game) {
+              triggerHaptic('light')
               gameState.game.setKey('ArrowRight', true);
               gameState.game.setAutoShoot(true);
             }
