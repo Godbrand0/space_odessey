@@ -1,8 +1,35 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useConnect } from 'wagmi'
+import { injected } from 'wagmi/connectors'
+
 
 export function WalletConnect() {
+  const [isMiniPay, setIsMiniPay] = useState(false)
+  const { connect } = useConnect()
+
+  useEffect(() => {
+    // Check if MiniPay is available
+    if (typeof window !== 'undefined' && window.ethereum?.isMiniPay) {
+      console.log('🔍 MiniPay detected! Auto-connecting...')
+      setIsMiniPay(true)
+
+      // Auto-connect to MiniPay
+      try {
+        connect({
+          connector: injected({
+            target: 'metaMask' // MiniPay uses MetaMask-compatible interface
+          })
+        })
+        console.log('✅ MiniPay auto-connection initiated')
+      } catch (error) {
+        console.error('❌ Failed to auto-connect MiniPay:', error)
+      }
+    }
+  }, [connect])
+
   return (
     <ConnectButton.Custom>
       {({
@@ -33,6 +60,19 @@ export function WalletConnect() {
             })}
           >
             {(() => {
+              // Hide connect button if MiniPay is detected and not connected yet
+              if (!connected && isMiniPay) {
+                return (
+                  <div className="arcade-font" style={{
+                    color: 'var(--neon-green)',
+                    fontSize: '8px',
+                    padding: '8px 16px'
+                  }}>
+                    CONNECTING...
+                  </div>
+                )
+              }
+
               if (!connected) {
                 return (
                   <button
@@ -111,7 +151,7 @@ export function WalletConnect() {
                       padding: '8px 16px',
                     }}
                   >
-                    {account.displayName}
+                    {isMiniPay ? '📱 ' : ''}{account.displayName}
                   </button>
                 </div>
               )

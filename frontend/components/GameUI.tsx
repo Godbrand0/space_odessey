@@ -7,11 +7,13 @@ import { useGameState } from '@/hooks/useGameState'
 import { useStartGame, useCompleteLevel, useAbandonGame, useClaimRewards, useContractBalance } from '@/hooks/useSpaceInvadersContract'
 import { WalletConnect } from './WalletConnect'
 import { TransactionStatus } from './TransactionStatus'
+import { useMiniPay } from '@/hooks/useMiniPay'
 
 export function GameUI() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { address, isConnected } = useAccount()
   const gameState = useGameState(canvasRef.current)
+  const { isMiniPay, isAutoConnecting } = useMiniPay()
 
   const { startGame, isPending: isStartingGame, isConfirmed, receipt } = useStartGame()
   const { completeLevel, isPending: isCompletingLevel } = useCompleteLevel()
@@ -153,18 +155,41 @@ export function GameUI() {
             </p>
           </div>
 
-          <div className="space-y-6 mt-12">
-            <p className="text-lg arcade-font" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
-              CONNECT WALLET TO START
-            </p>
-            <p className="text-lg arcade-font" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
-              EARN CELO REWARDS
-            </p>
-          </div>
+          {/* MiniPay-specific welcome message */}
+          {isMiniPay ? (
+            <div className="space-y-6 mt-12">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-4xl">📱</span>
+                <p className="text-lg arcade-font pulse-glow" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
+                  MINIPAY DETECTED
+                </p>
+              </div>
+              {isAutoConnecting && (
+                <p className="text-lg arcade-font animate-pulse" style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>
+                  CONNECTING WALLET...
+                </p>
+              )}
+              <p className="text-lg arcade-font" style={{ color: 'var(--neon-yellow)', fontSize: '10px' }}>
+                PLAY & EARN CELO
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 mt-12">
+              <p className="text-lg arcade-font" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
+                CONNECT WALLET TO START
+              </p>
+              <p className="text-lg arcade-font" style={{ color: 'var(--neon-green)', fontSize: '12px' }}>
+                EARN CELO REWARDS
+              </p>
+            </div>
+          )}
 
-          <div className="mt-8">
-            <WalletConnect />
-          </div>
+          {/* Hide connect button if MiniPay is auto-connecting */}
+          {!isAutoConnecting && (
+            <div className="mt-8">
+              <WalletConnect />
+            </div>
+          )}
 
           <div className="mt-12 flex justify-center gap-4">
             <div className="text-center">
