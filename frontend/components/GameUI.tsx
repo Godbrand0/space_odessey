@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useAccount } from 'wagmi'
 import { useGameState } from '@/hooks/useGameState'
-import { useStartGame, useCompleteLevel, useAbandonGame, useClaimRewards } from '@/hooks/useSpaceInvadersContract'
+import { useStartGame, useCompleteLevel, useAbandonGame, useClaimRewards, useContractBalance } from '@/hooks/useSpaceInvadersContract'
 import { WalletConnect } from './WalletConnect'
 import { TransactionStatus } from './TransactionStatus'
 
@@ -16,56 +16,32 @@ export function GameUI() {
   const { completeLevel, isPending: isCompletingLevel } = useCompleteLevel()
   const { abandonGame, isPending: isAbandoningGame } = useAbandonGame()
   const { claimRewards, isPending: isClaimingRewards } = useClaimRewards()
-
-  // Log contract address on component mount
-  useEffect(() => {
-    console.log('🔗 Contract Address:', process.env.NEXT_PUBLIC_CONTRACT_ADDRESS)
-    console.log('🌐 Network:', process.env.NEXT_PUBLIC_NETWORK)
-  }, [])
+  const { balance: contractBalance } = useContractBalance()
 
   const handleStartGame = async () => {
-    console.log('🎮 Start game button clicked')
-    console.log('📱 Wallet connected:', isConnected)
-    console.log('📝 Wallet address:', address)
-    
     try {
-      console.log('🚀 Calling startGame contract function...')
       const hash = await startGame()
-      console.log('✅ startGame transaction hash:', hash)
       
       // Note: The actual sessionId will be returned after transaction confirmation
       // We'll need to wait for the transaction to be mined and then get the session info
-      console.log('⏳ Waiting for transaction confirmation...')
     } catch (error) {
-      console.error('❌ Failed to start game:', error)
+      console.error('Failed to start game:', error)
     }
   }
 
   // Handle transaction confirmation and extract sessionId
   useEffect(() => {
     if (isConfirmed && receipt) {
-      console.log('🎉 Transaction confirmed, extracting sessionId...')
-      console.log('📄 Transaction receipt:', receipt)
-      
       // Extract sessionId from transaction logs
       // The GameStarted event should contain the sessionId as the first parameter
       if (receipt.logs && receipt.logs.length > 0) {
-        console.log('📋 Transaction logs:', receipt.logs)
-        
         // Try to find the GameStarted event
-        console.log('🔍 Looking for GameStarted event in logs...')
-        
-        // Check if logs exist and have the expected structure
         if (receipt.logs && receipt.logs.length > 0) {
           for (const log of receipt.logs) {
-            console.log('📋 Processing log:', log)
-            
             // Try different ways to access the event data
-            if (log.eventName === 'GameStarted') {
-              console.log('✅ Found GameStarted event:', log)
-              if (log.args && log.args.length > 0) {
-                const sessionId = log.args[0]
-                console.log('🎯 Found sessionId:', sessionId)
+            if ((log as any).eventName === 'GameStarted') {
+              if ((log as any).args && (log as any).args.length > 0) {
+                const sessionId = (log as any).args[0]
                 gameState.startNewGame(sessionId)
                 return
               }
@@ -73,21 +49,17 @@ export function GameUI() {
             
             // Alternative: Check if log has topics that match GameStarted event
             if (log.topics && log.topics.length > 0) {
-              console.log('🔍 Log topics:', log.topics)
               // The first topic should be the GameStarted event signature
               // The second topic (if exists) should contain the sessionId
               if (log.topics.length > 1) {
                 // Convert the topic to a bigint (sessionId)
-                const sessionId = BigInt(log.topics[1])
-                console.log('🎯 Found sessionId from topics:', sessionId)
+                const sessionId = BigInt(log.topics[1] as string)
                 gameState.startNewGame(sessionId)
                 return
               }
             }
           }
         }
-        
-        console.error('❌ Could not extract sessionId from transaction logs')
       }
     }
   }, [isConfirmed, receipt, gameState.startNewGame])
@@ -96,10 +68,20 @@ export function GameUI() {
     if (!gameState.sessionId) return
     
     try {
+      console.log('🎯 Completing level:', gameState.currentLevel)
+      console.log('📊 Current game state before completion:', {
+        sessionId: gameState.sessionId.toString(),
+        currentLevel: gameState.currentLevel,
+        levelsCompleted: gameState.levelsCompleted,
+        totalRewardsEarned: gameState.totalRewardsEarned,
+        isActive: gameState.isActive,
+        isCompleted: gameState.isCompleted
+      })
+      
       // Generate proof (simplified - in production this would be more sophisticated)
       const proof = '0x' + '0'.repeat(64) // Placeholder proof
       
-      await completeLevel(
+      const hash = await completeLevel(
         gameState.sessionId,
         gameState.currentLevel,
         100 * gameState.currentLevel, // Score based on level
@@ -107,9 +89,10 @@ export function GameUI() {
         proof as `0x${string}`
       )
       
+      console.log('✅ Complete level transaction hash:', hash)
       gameState.refetchAll()
     } catch (error) {
-      console.error('Failed to complete level:', error)
+      console.error('❌ Failed to complete level:', error)
     }
   }
 
@@ -129,13 +112,24 @@ export function GameUI() {
     if (!gameState.sessionId) return
     
     try {
+      console.log('🎯 Claiming rewards for sessionId:', gameState.sessionId.toString())
+      console.log('📊 Current game state:', {
+        levelsCompleted: gameState.levelsCompleted,
+        totalRewardsEarned: gameState.totalRewardsEarned,
+        isActive: gameState.isActive,
+        isCompleted: gameState.isCompleted,
+        gameStatus: gameState.gameStatus
+      })
+      
       gameState.setClaimingStatus()
-      await claimRewards(gameState.sessionId)
+      const hash = await claimRewards(gameState.sessionId)
+      console.log('✅ Claim rewards transaction hash:', hash)
+      
       gameState.resetGame()
       gameState.refetchAll()
     } catch (error) {
-      console.error('Failed to claim rewards:', error)
-      gameState.setClaimingStatus(false)
+      console.error('❌ Failed to claim rewards:', error)
+      gameState.setClaimingStatus()
     }
   }
 
@@ -172,6 +166,9 @@ export function GameUI() {
           </div>
           <div className="text-sm">
             <span className="text-gray-400">Rewards:</span> {gameState.totalRewardsEarned} CELO
+          </div>
+          <div className="text-sm">
+            <span className="text-gray-400">Contract:</span> {parseFloat(contractBalance).toFixed(2)} CELO
           </div>
           <WalletConnect />
         </div>
@@ -213,7 +210,9 @@ export function GameUI() {
               </button>
               <button
                 onClick={handleNextLevel}
-                className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold text-lg transition-all transform hover:scale-105"
+                disabled={isCompletingLevel}
+                className="px-8 py-4 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold text-lg transition-all transform hover:scale-105 opacity-50 cursor-not-allowed"
+                style={{ display: isCompletingLevel ? 'none' : 'block' }}
               >
                 {isCompletingLevel ? '⏭ Next Level' : '🚀 Next Level'}
               </button>

@@ -52,6 +52,13 @@ export function useCompleteLevel() {
     proof: `0x${string}`
   ) => {
     try {
+      console.log('🔗 Contract address:', CONTRACT_CONFIG.address)
+      console.log('📋 Contract function:', CONTRACT_FUNCTIONS.COMPLETE_LEVEL)
+      console.log('🆔 SessionId:', sessionId.toString())
+      console.log('📊 Level:', level)
+      console.log('🎯 Score:', score)
+      console.log('👾 Aliens destroyed:', aliensDestroyed)
+      
       await writeContract({
         address: CONTRACT_CONFIG.address as `0x${string}`,
         abi: CONTRACT_ABI,
@@ -59,7 +66,12 @@ export function useCompleteLevel() {
         args: [sessionId, BigInt(level), BigInt(score), BigInt(aliensDestroyed), proof],
       })
     } catch (err) {
-      console.error('Error completing level:', err)
+      console.error('❌ Error completing level:', err)
+      // Log more details about the error
+      if (err instanceof Error) {
+        console.error('Error message:', err.message)
+        console.error('Error stack:', err.stack)
+      }
       throw err
     }
   }
@@ -114,6 +126,10 @@ export function useClaimRewards() {
 
   const claimRewards = async (sessionId: bigint) => {
     try {
+      console.log('🔗 Contract address:', CONTRACT_CONFIG.address)
+      console.log('📋 Contract function:', CONTRACT_FUNCTIONS.CLAIM_REWARDS)
+      console.log('🆔 SessionId:', sessionId.toString())
+      
       await writeContract({
         address: CONTRACT_CONFIG.address as `0x${string}`,
         abi: CONTRACT_ABI,
@@ -121,7 +137,12 @@ export function useClaimRewards() {
         args: [sessionId],
       })
     } catch (err) {
-      console.error('Error claiming rewards:', err)
+      console.error('❌ Error claiming rewards:', err)
+      // Log more details about the error
+      if (err instanceof Error) {
+        console.error('Error message:', err.message)
+        console.error('Error stack:', err.stack)
+      }
       throw err
     }
   }

@@ -20,8 +20,16 @@ export const config = createConfig({
     }),
   ],
   transports: {
-    [celo.id]: http(),
-    [celoSepolia.id]: http(),
+    [celo.id]: http(undefined, {
+      retryCount: 3,
+      retryDelay: 1000,
+      timeout: 30000, // 30 seconds timeout
+    }),
+    [celoSepolia.id]: http(undefined, {
+      retryCount: 3,
+      retryDelay: 1000,
+      timeout: 30000, // 30 seconds timeout
+    }),
   },
 })
 
