@@ -289,113 +289,6 @@ export function GameUI() {
           </button>
         )}
 
-        {gameState.gameStatus === 'levelComplete' && (
-          <div className="flex flex-col items-center space-y-6">
-            <h2 className="text-4xl neon-text arcade-font glitch" style={{ color: 'var(--neon-green)', fontSize: '24px' }}>
-              LEVEL {gameState.currentLevel - 1} COMPLETE!
-            </h2>
-            <p className="arcade-font" style={{ color: 'var(--neon-yellow)', fontSize: '12px' }}>
-              ALIENS DESTROYED! +2 CELO EARNED
-            </p>
-            <p className="arcade-font" style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>
-              TOTAL EARNED: {Number(formatEther(BigInt(gameState.totalRewardsEarned))) + 2} CELO
-            </p>
-            <div className="flex gap-4">
-              <button
-                onClick={handleCompleteLevel}
-                disabled={isCompletingLevel}
-                className="arcade-button"
-                style={{
-                  color: 'var(--neon-cyan)',
-                  fontSize: '10px',
-                  opacity: isCompletingLevel ? 0.5 : 1
-                }}
-              >
-                {isCompletingLevel ? 'RECORDING...' : 'RECORD LEVEL'}
-              </button>
-              <button
-                onClick={handleNextLevel}
-                disabled={isCompletingLevel}
-                className="arcade-button"
-                style={{
-                  color: 'var(--neon-purple)',
-                  fontSize: '10px',
-                  opacity: isCompletingLevel ? 0.3 : 1
-                }}
-              >
-                {gameState.currentLevel <= 5 ? 'NEXT LEVEL' : 'CONTINUE'}
-              </button>
-            </div>
-            <p className="arcade-font" style={{ color: 'var(--neon-pink)', fontSize: '8px', opacity: 0.7 }}>
-              CLAIM ALL REWARDS AFTER GAME ENDS
-            </p>
-          </div>
-        )}
-
-        {gameState.gameStatus === 'gameOver' && (
-          <div className="flex flex-col items-center space-y-6">
-            <h2 className="text-4xl neon-text arcade-font glitch" style={{ color: 'var(--neon-red)', fontSize: '24px' }}>
-              GAME OVER
-            </h2>
-            <p className="arcade-font" style={{ color: 'var(--neon-cyan)', fontSize: '12px' }}>
-              LEVELS CLEARED: {gameState.levelsCompleted}
-            </p>
-            <p className="arcade-font" style={{ color: 'var(--neon-yellow)', fontSize: '14px' }}>
-              EARNED: {formatEther(BigInt(gameState.totalRewardsEarned))} CELO
-            </p>
-            <div className="flex gap-4">
-              <button
-                onClick={handleClaimRewards}
-                disabled={isClaimingRewards || gameState.totalRewardsEarned === 0}
-                className="arcade-button pulse-glow"
-                style={{
-                  color: 'var(--neon-yellow)',
-                  fontSize: '10px',
-                  opacity: (isClaimingRewards || gameState.totalRewardsEarned === 0) ? 0.5 : 1
-                }}
-              >
-                {isClaimingRewards ? 'CLAIMING...' : `CLAIM ${formatEther(BigInt(gameState.totalRewardsEarned))} CELO`}
-              </button>
-              <button
-                onClick={gameState.resetGame}
-                className="arcade-button"
-                style={{
-                  color: 'var(--neon-green)',
-                  fontSize: '10px'
-                }}
-              >
-                TRY AGAIN
-              </button>
-            </div>
-          </div>
-        )}
-
-        {gameState.gameStatus === 'victory' && (
-          <div className="flex flex-col items-center space-y-6">
-            <h2 className="text-5xl neon-text arcade-font rainbow-border" style={{ color: 'var(--neon-yellow)', fontSize: '32px' }}>
-              CHAMPION!
-            </h2>
-            <p className="arcade-font neon-text" style={{ color: 'var(--neon-pink)', fontSize: '14px' }}>
-              ALL LEVELS CONQUERED!
-            </p>
-            <p className="arcade-font score-display" style={{ fontSize: '16px', color: 'var(--neon-green)' }}>
-              TOTAL: {formatEther(BigInt(gameState.totalRewardsEarned))} CELO
-            </p>
-            <button
-              onClick={handleClaimRewards}
-              disabled={isClaimingRewards}
-              className="arcade-button pulse-glow rainbow-border"
-              style={{
-                color: 'var(--neon-yellow)',
-                fontSize: '12px',
-                opacity: isClaimingRewards ? 0.5 : 1
-              }}
-            >
-              {isClaimingRewards ? 'CLAIMING...' : 'CLAIM PRIZE!'}
-            </button>
-          </div>
-        )}
-
         {gameState.isActive && (
           <button
             onClick={handleAbandonGame}
@@ -411,6 +304,65 @@ export function GameUI() {
             {isAbandoningGame ? 'ABORTING...' : 'ABORT MISSION'}
           </button>
         )}
+      </div>
+
+      {/* Mobile Controls */}
+      <div className="flex justify-between px-4 pb-8 md:hidden gap-4">
+        <button
+          className="flex-1 py-6 rounded-xl arcade-font text-xl active:scale-95 transition-transform select-none touch-none"
+          style={{
+            background: 'rgba(255, 0, 55, 0.2)',
+            border: '2px solid var(--neon-pink)',
+            color: 'var(--neon-pink)',
+            boxShadow: '0 0 15px rgba(255, 0, 55, 0.3)'
+          }}
+          onPointerDown={() => {
+            if (gameState.game) {
+              gameState.game.setKey('ArrowLeft', true);
+              gameState.game.setAutoShoot(true);
+            }
+          }}
+          onPointerUp={() => {
+            if (gameState.game) {
+              gameState.game.setKey('ArrowLeft', false);
+            }
+          }}
+          onPointerLeave={() => {
+            if (gameState.game) {
+              gameState.game.setKey('ArrowLeft', false);
+            }
+          }}
+        >
+          ⬅️ LEFT
+        </button>
+        
+        <button
+          className="flex-1 py-6 rounded-xl arcade-font text-xl active:scale-95 transition-transform select-none touch-none"
+          style={{
+            background: 'rgba(255, 0, 55, 0.2)',
+            border: '2px solid var(--neon-pink)',
+            color: 'var(--neon-pink)',
+            boxShadow: '0 0 15px rgba(255, 0, 55, 0.3)'
+          }}
+          onPointerDown={() => {
+            if (gameState.game) {
+              gameState.game.setKey('ArrowRight', true);
+              gameState.game.setAutoShoot(true);
+            }
+          }}
+          onPointerUp={() => {
+            if (gameState.game) {
+              gameState.game.setKey('ArrowRight', false);
+            }
+          }}
+          onPointerLeave={() => {
+            if (gameState.game) {
+              gameState.game.setKey('ArrowRight', false);
+            }
+          }}
+        >
+          RIGHT ➡️
+        </button>
       </div>
 
       {/* Instructions Panel */}
@@ -451,6 +403,96 @@ export function GameUI() {
                 <span style={{ color: 'var(--neon-green)' }}>COMPLETE ALL 5 LEVELS = 10 CELO!</span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Over Modal */}
+      {gameState.gameStatus === 'gameOver' && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 p-8 rounded-2xl border-4 border-red-500 max-w-md w-full text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('/grid.png')] opacity-10"></div>
+            <h2 className="text-4xl arcade-font text-red-500 mb-6 relative z-10 glitch-text">GAME OVER</h2>
+            <p className="text-xl text-white mb-4 arcade-font relative z-10">
+              LEVELS CLEARED: {gameState.levelsCompleted}
+            </p>
+            <p className="arcade-font" style={{ color: 'var(--neon-yellow)', fontSize: '14px' }}>
+              EARNED: {formatEther(BigInt(gameState.totalRewardsEarned))} CELO
+            </p>
+            <div className="flex gap-4 justify-center mt-8 relative z-10">
+              <button
+                onClick={handleClaimRewards}
+                disabled={isClaimingRewards || gameState.totalRewardsEarned === 0}
+                className="px-6 py-3 bg-yellow-500/20 border-2 border-yellow-500 text-yellow-500 rounded hover:bg-yellow-500/40 transition-colors arcade-font disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isClaimingRewards ? 'CLAIMING...' : `CLAIM ${formatEther(BigInt(gameState.totalRewardsEarned))} CELO`}
+              </button>
+              <button
+                onClick={gameState.resetGame}
+                className="px-6 py-3 bg-red-500/20 border-2 border-red-500 text-red-500 rounded hover:bg-red-500/40 transition-colors arcade-font"
+              >
+                TRY AGAIN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Victory Modal */}
+      {gameState.gameStatus === 'victory' && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 p-8 rounded-2xl border-4 border-green-500 max-w-md w-full text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('/grid.png')] opacity-10"></div>
+            <h2 className="text-4xl arcade-font text-green-500 mb-6 relative z-10 glitch-text">VICTORY!</h2>
+            <p className="text-xl text-white mb-4 arcade-font relative z-10">
+              ALL LEVELS CONQUERED!
+            </p>
+            <p className="arcade-font score-display" style={{ fontSize: '16px', color: 'var(--neon-green)' }}>
+              TOTAL: {formatEther(BigInt(gameState.totalRewardsEarned))} CELO
+            </p>
+            <button
+              onClick={handleClaimRewards}
+              disabled={isClaimingRewards || gameState.totalRewardsEarned === 0}
+              className="mt-8 px-8 py-4 bg-green-500/20 border-2 border-green-500 text-green-500 rounded hover:bg-green-500/40 transition-colors arcade-font w-full relative z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isClaimingRewards ? 'CLAIMING...' : 'CLAIM ALL REWARDS'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Level Complete Modal */}
+      {gameState.gameStatus === 'levelComplete' && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 p-8 rounded-2xl border-4 border-blue-500 max-w-md w-full text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('/grid.png')] opacity-10"></div>
+            <h2 className="text-3xl arcade-font text-blue-500 mb-6 relative z-10">LEVEL COMPLETE!</h2>
+            <p className="text-lg text-white mb-2 arcade-font relative z-10">
+              ALIENS DESTROYED! +2 CELO EARNED
+            </p>
+            <p className="arcade-font" style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>
+              TOTAL EARNED: {Number(formatEther(BigInt(gameState.totalRewardsEarned))) + 2} CELO
+            </p>
+            <div className="flex gap-4 justify-center mt-8 relative z-10">
+              <button
+                onClick={handleCompleteLevel}
+                disabled={isCompletingLevel}
+                className="px-8 py-4 bg-blue-500/20 border-2 border-blue-500 text-blue-500 rounded hover:bg-blue-500/40 transition-colors arcade-font disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isCompletingLevel ? (
+                  <>
+                    <span className="animate-spin">⏳</span> RECORDING...
+                  </>
+                ) : (
+                  <>
+                    <span>💾</span> RECORD LEVEL
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-gray-400 arcade-font">
+              CLAIM ALL REWARDS AFTER GAME ENDS
+            </p>
           </div>
         </div>
       )}

@@ -33,6 +33,7 @@ export class Game {
   private timeRemaining = 60;
   private timerInterval: NodeJS.Timeout | null = null;
   private levelCompleteHandled = false; // Flag to prevent multiple callbacks
+  private autoShoot = false; // Mobile auto-shoot feature
 
   constructor(canvas: HTMLCanvasElement, callbacks: GameCallbacks, startLevel: number = 1) {
     console.log('🎮 Game constructor called with level:', startLevel)
@@ -248,6 +249,11 @@ export class Game {
   }
 
   private checkCollisions() {
+    // Auto-shoot logic
+    if (this.autoShoot) {
+      this.shoot();
+    }
+
     // Player bullets vs aliens
     this.bullets.forEach((bullet, bulletIndex) => {
       this.aliens.forEach((alien, alienIndex) => {
@@ -348,5 +354,13 @@ export class Game {
 
   public getCurrentLevel(): number {
     return this.currentLevel;
+  }
+
+  public setKey(key: string, pressed: boolean) {
+    this.keys[key] = pressed;
+  }
+
+  public setAutoShoot(enabled: boolean) {
+    this.autoShoot = enabled;
   }
 }
