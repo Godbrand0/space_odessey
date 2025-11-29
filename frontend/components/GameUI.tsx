@@ -23,7 +23,7 @@ export function GameUI() {
   }, [])
 
   const { startGame, isPending: isStartingGame, isConfirmed, receipt } = useStartGame()
-  const { completeLevel, isPending: isCompletingLevel } = useCompleteLevel()
+  const { completeLevel, isPending: isCompletingLevel, isConfirmed: isLevelCompleteConfirmed } = useCompleteLevel()
   const { abandonGame, isPending: isAbandoningGame } = useAbandonGame()
   const { claimRewards, isPending: isClaimingRewards } = useClaimRewards()
   const { balance: contractBalance } = useContractBalance()
@@ -37,6 +37,16 @@ export function GameUI() {
       triggerHaptic('error')
     }
   }
+
+  // Handle level completion confirmation
+  useEffect(() => {
+    if (isLevelCompleteConfirmed && gameState.gameStatus === 'levelComplete') {
+      console.log('✅ Level completion confirmed on blockchain')
+      triggerHaptic('success')
+      // Refetch game state from blockchain
+      gameState.refetchAll()
+    }
+  }, [isLevelCompleteConfirmed, gameState])
 
   useEffect(() => {
     if (isConfirmed && receipt) {
@@ -514,24 +524,33 @@ export function GameUI() {
               TOTAL EARNED: {Number(formatEther(BigInt(gameState.totalRewardsEarned))) + 2} CELO
             </p>
             <div className="flex gap-4 justify-center mt-8 relative z-10">
-              <button
-                onClick={handleCompleteLevel}
-                disabled={isCompletingLevel}
-                className="px-8 py-4 bg-blue-500/20 border-2 border-blue-500 text-blue-500 rounded hover:bg-blue-500/40 transition-colors arcade-font disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isCompletingLevel ? (
-                  <>
-                    <span className="animate-spin">⏳</span> RECORDING...
-                  </>
-                ) : (
-                  <>
-                    <span>💾</span> RECORD LEVEL
-                  </>
-                )}
-              </button>
+              {!isLevelCompleteConfirmed ? (
+                <button
+                  onClick={handleCompleteLevel}
+                  disabled={isCompletingLevel}
+                  className="px-8 py-4 bg-blue-500/20 border-2 border-blue-500 text-blue-500 rounded hover:bg-blue-500/40 transition-colors arcade-font disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isCompletingLevel ? (
+                    <>
+                      <span className="animate-spin">⏳</span> RECORDING...
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span> RECORD LEVEL
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleNextLevel}
+                  className="px-8 py-4 bg-green-500/20 border-2 border-green-500 text-green-500 rounded hover:bg-green-500/40 transition-colors arcade-font flex items-center gap-2 pulse-glow"
+                >
+                  <span>🚀</span> NEXT LEVEL
+                </button>
+              )}
             </div>
             <p className="mt-4 text-xs text-gray-400 arcade-font">
-              CLAIM ALL REWARDS AFTER GAME ENDS
+              {isLevelCompleteConfirmed ? 'READY TO CONTINUE!' : 'CLAIM ALL REWARDS AFTER GAME ENDS'}
             </p>
           </div>
         </div>
