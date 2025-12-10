@@ -65,29 +65,59 @@ export function GameUI() {
 
   useEffect(() => {
     if (isConfirmed && receipt) {
-      if (receipt.logs && receipt.logs.length > 0) {
-        if (receipt.logs && receipt.logs.length > 0) {
-          for (const log of receipt.logs) {
-            if ((log as any).eventName === "GameStarted") {
-              if ((log as any).args && (log as any).args.length > 0) {
-                const sessionId = (log as any).args[0];
-                gameState.startNewGame(sessionId);
-                return;
-              }
-            }
+      let sessionIdFound = false;
 
-            if (log.topics && log.topics.length > 0) {
-              if (log.topics.length > 1) {
-                const sessionId = BigInt(log.topics[1] as string);
-                gameState.startNewGame(sessionId);
+      if (receipt.logs && receipt.logs.length > 0) {
+        for (const log of receipt.logs) {
+          // Method 1: Try eventName and args
+          if ((log as any).eventName === "GameStarted" && (log as any).args) {
+            const args = (log as any).args;
+            if (args.length > 0 || args[0] !== undefined || args.sessionId !== undefined) {
+              const sessionId = args[0] || args.sessionId;
+              if (sessionId) {
+                gameState.startNewGame(BigInt(sessionId));
+                sessionIdFound = true;
                 return;
               }
             }
           }
+
+          // Method 2: Try topics (most reliable for MiniPay)
+          const topics = (log as any).topics;
+          if (topics && Array.isArray(topics) && topics.length > 1) {
+            try {
+              const sessionId = BigInt(topics[1]);
+              gameState.startNewGame(sessionId);
+              sessionIdFound = true;
+              return;
+            } catch (error) {
+              // Continue to next log
+            }
+          }
+
+          // Method 3: Try data field
+          const data = (log as any).data;
+          if (data && data !== '0x' && data.length > 2) {
+            try {
+              const sessionId = BigInt(data);
+              if (sessionId > 0n) {
+                gameState.startNewGame(sessionId);
+                sessionIdFound = true;
+                return;
+              }
+            } catch (error) {
+              // Continue to next log
+            }
+          }
         }
       }
+
+      // Fallback: If no sessionId found, alert user
+      if (!sessionIdFound) {
+        alert('Game started on blockchain but session ID not found. Please refresh and try again.');
+      }
     }
-  }, [isConfirmed, receipt, gameState.startNewGame]);
+  }, [isConfirmed, receipt, gameState]);
 
   const handleCompleteLevel = async () => {
     if (!gameState.sessionId) return;
