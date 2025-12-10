@@ -72,7 +72,11 @@ export function GameUI() {
           // Method 1: Try eventName and args
           if ((log as any).eventName === "GameStarted" && (log as any).args) {
             const args = (log as any).args;
-            if (args.length > 0 || args[0] !== undefined || args.sessionId !== undefined) {
+            if (
+              args.length > 0 ||
+              args[0] !== undefined ||
+              args.sessionId !== undefined
+            ) {
               const sessionId = args[0] || args.sessionId;
               if (sessionId) {
                 gameState.startNewGame(BigInt(sessionId));
@@ -97,10 +101,10 @@ export function GameUI() {
 
           // Method 3: Try data field
           const data = (log as any).data;
-          if (data && data !== '0x' && data.length > 2) {
+          if (data && data !== "0x" && data.length > 2) {
             try {
               const sessionId = BigInt(data);
-              if (sessionId > 0n) {
+              if (sessionId > BigInt(0)) {
                 gameState.startNewGame(sessionId);
                 sessionIdFound = true;
                 return;
@@ -114,7 +118,9 @@ export function GameUI() {
 
       // Fallback: If no sessionId found, alert user
       if (!sessionIdFound) {
-        alert('Game started on blockchain but session ID not found. Please refresh and try again.');
+        alert(
+          "Game started on blockchain but session ID not found. Please refresh and try again."
+        );
       }
     }
   }, [isConfirmed, receipt, gameState]);
