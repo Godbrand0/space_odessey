@@ -2,33 +2,74 @@
 
 import { useEffect, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useConnect } from 'wagmi'
-import { injected } from 'wagmi/connectors'
+import { useConnect, useAccount } from 'wagmi'
 
 
 export function WalletConnect() {
   const [isMiniPay, setIsMiniPay] = useState(false)
-  const { connect } = useConnect()
+  const [isAutoConnecting, setIsAutoConnecting] = useState(false)
+  const { connect, connectors } = useConnect()
+  const { isConnected } = useAccount()
 
   useEffect(() => {
     // Check if MiniPay is available
     if (typeof window !== 'undefined' && window.ethereum?.isMiniPay) {
       console.log('🔍 MiniPay detected! Auto-connecting...')
       setIsMiniPay(true)
+      setIsAutoConnecting(true)
 
-      // Auto-connect to MiniPay
+      // Set a timeout to stop showing "CONNECTING..." after 5 seconds
+      const timeoutId = setTimeout(() => {
+        console.log('⏱️ MiniPay connection timeout - stopping auto-connect state')
+        setIsAutoConnecting(false)
+      }, 5000)
+
+      // Find the injected connector from the config
+      const injectedConnector = connectors.find(c => c.id === 'injected')
+
+      if (!injectedConnector) {
+        console.error('❌ Injected connector not found')
+        clearTimeout(timeoutId)
+        setIsAutoConnecting(false)
+        return
+      }
+
+      // Auto-connect to MiniPay using the injected connector
       try {
-        connect({
-          connector: injected({
-            target: 'metaMask' // MiniPay uses MetaMask-compatible interface
-          })
-        })
+        console.log('🔗 Connecting with injected connector...')
+        connect(
+          { connector: injectedConnector },
+          {
+            onSuccess: () => {
+              console.log('✅ MiniPay connected successfully')
+              clearTimeout(timeoutId)
+              setIsAutoConnecting(false)
+            },
+            onError: (error) => {
+              console.error('❌ Failed to auto-connect MiniPay:', error)
+              clearTimeout(timeoutId)
+              setIsAutoConnecting(false)
+            }
+          }
+        )
         console.log('✅ MiniPay auto-connection initiated')
       } catch (error) {
         console.error('❌ Failed to auto-connect MiniPay:', error)
+        clearTimeout(timeoutId)
+        setIsAutoConnecting(false)
       }
+
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId)
     }
-  }, [connect])
+  }, [connect, connectors])
+
+  // Stop showing "CONNECTING..." if connection succeeds
+  useEffect(() => {
+    if (isConnected && isAutoConnecting) {
+      setIsAutoConnecting(false)
+    }
+  }, [isConnected, isAutoConnecting])
 
   return (
     <ConnectButton.Custom>
@@ -60,8 +101,8 @@ export function WalletConnect() {
             })}
           >
             {(() => {
-              // Hide connect button if MiniPay is detected and not connected yet
-              if (!connected && isMiniPay) {
+              // Show connecting state only while actively trying to connect
+              if (isAutoConnecting) {
                 return (
                   <div className="arcade-font" style={{
                     color: 'var(--neon-green)',

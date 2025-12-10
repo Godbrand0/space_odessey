@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useConnect } from 'wagmi'
-import { injected } from 'wagmi/connectors'
+import { useConnect, useAccount } from 'wagmi'
 
 
 /**
@@ -14,7 +13,8 @@ import { injected } from 'wagmi/connectors'
 export function useMiniPay() {
   const [isMiniPay, setIsMiniPay] = useState(false)
   const [isAutoConnecting, setIsAutoConnecting] = useState(false)
-  const { connect } = useConnect()
+  const { connect, connectors } = useConnect()
+  const { isConnected } = useAccount()
 
   useEffect(() => {
     // Only run on client side
@@ -26,26 +26,45 @@ export function useMiniPay() {
       setIsMiniPay(true)
       setIsAutoConnecting(true)
 
+      // Find the injected connector
+      const injectedConnector = connectors.find(c => c.id === 'injected')
+
+      if (!injectedConnector) {
+        console.error('❌ Injected connector not found')
+        setIsAutoConnecting(false)
+        return
+      }
+
       // Auto-connect to MiniPay
       // MiniPay requires implicit connection when the dapp loads
       try {
-        connect({
-          connector: injected({
-            target: 'metaMask' // MiniPay uses MetaMask-compatible interface
-          })
-        })
+        connect(
+          { connector: injectedConnector },
+          {
+            onSuccess: () => {
+              console.log('✅ MiniPay connected successfully')
+              setIsAutoConnecting(false)
+            },
+            onError: (error) => {
+              console.error('❌ Failed to auto-connect MiniPay:', error)
+              setIsAutoConnecting(false)
+            }
+          }
+        )
         console.log('✅ MiniPay auto-connection initiated')
-
-        // Reset auto-connecting state after a delay
-        setTimeout(() => {
-          setIsAutoConnecting(false)
-        }, 2000)
       } catch (error) {
         console.error('❌ Failed to auto-connect MiniPay:', error)
         setIsAutoConnecting(false)
       }
     }
-  }, [connect])
+  }, [connect, connectors])
+
+  // Stop auto-connecting state when connection succeeds
+  useEffect(() => {
+    if (isConnected && isAutoConnecting) {
+      setIsAutoConnecting(false)
+    }
+  }, [isConnected, isAutoConnecting])
 
   return {
     isMiniPay,
