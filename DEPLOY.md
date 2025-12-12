@@ -93,9 +93,9 @@ Check these URLs after deployment:
 Set these in Vercel dashboard under **Settings** → **Environment Variables**:
 
 ```
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xc41fB0C3b04D71d93352fBb0A5E7BedCD2844970
-NEXT_PUBLIC_NETWORK=celo-sepolia
-NEXT_PUBLIC_RPC_URL=https://sepolia-forno.celo-testnet.org
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xee713e7CC2DC316b353e62dB4D67EE40Fc981FFF
+NEXT_PUBLIC_NETWORK=celo
+NEXT_PUBLIC_RPC_URL=https://forno.celo.org
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-project-id
 ```
 

@@ -220,7 +220,6 @@ contract SpaceInvadersGame is Ownable, ReentrancyGuard, Pausable {
         if (session.isActive) {
             revert SessionNotActive();
         }
-        GameSession storage session = gameSessions[sessionId];
 
         if (session.levelsCompleted == 0) {
             revert NoRewardsToClaim();

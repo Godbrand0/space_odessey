@@ -2,9 +2,9 @@
  * Contract configuration for SpaceInvadersGame Celo contract
  */
 export const CONTRACT_CONFIG = {
-  address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xc41fB0C3b04D71d93352fBb0A5E7BedCD2844970',
-  network: process.env.NEXT_PUBLIC_NETWORK || 'celo-sepolia',
-  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://sepolia-forno.celo-testnet.org',
+  address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xee713e7CC2DC316b353e62dB4D67EE40Fc981FFF',
+  network: process.env.NEXT_PUBLIC_NETWORK || 'celo',
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://forno.celo.org',
 };
 
 /**
